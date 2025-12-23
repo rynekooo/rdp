@@ -29,7 +29,7 @@ jobs:
           # (Optional) Restart the Remote Desktop service to ensure changes take effect
           Restart-Service -Name TermService -Force
 
-      - name: Set Administrator Password
+      - name: Create RDP User with Secure Password
         run: |
           Add-Type -AssemblyName System.Security
           $charSet = @{
@@ -39,23 +39,18 @@ jobs:
               Special = ([char[]](33..47) + [char[]](58..64) +
                          [char[]](91..96) + [char[]](123..126)) # Special characters
           }
-          $rawPassword = @()
-          $rawPassword += $charSet.Upper | Get-Random -Count 4
-          $rawPassword += $charSet.Lower | Get-Random -Count 4
-          $rawPassword += $charSet.Number | Get-Random -Count 4
-          $rawPassword += $charSet.Special | Get-Random -Count 4
-          $password = -join ($rawPassword | Sort-Object { Get-Random })
+          $password = "rynekoo"
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          New-LocalUser -Name "Rynn" -Password $securePass -AccountNeverExpires
+          Add-LocalGroupMember -Group "Administrators" -Member "Rynn"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "Rynn"
           
-          # Set password for built-in Administrator account
-          Get-LocalUser -Name "Administrator" | Set-LocalUser -Password $securePass
+          echo "RDP_CREDS=User: Rynn | Password: $password" >> $env:GITHUB_ENV
           
-          # Enable Administrator account if disabled
-          Enable-LocalUser -Name "Administrator"
-          
-          echo "RDP_CREDS=$password" >> $env:GITHUB_ENV
-          
-          Write-Host "Administrator account configured successfully"
+          if (-not (Get-LocalUser -Name "Rynn")) {
+              Write-Error "User creation failed"
+              exit 1
+          }
 
       - name: Install Tailscale
         run: |
@@ -102,7 +97,7 @@ jobs:
         run: |
           Write-Host "`n=== RDP ACCESS ==="
           Write-Host "Address: $env:TAILSCALE_IP"
-          Write-Host "Username: Administrator"
+          Write-Host "Username: Rynn"
           Write-Host "Password: $(echo $env:RDP_CREDS)"
           Write-Host "==================`n"
           
