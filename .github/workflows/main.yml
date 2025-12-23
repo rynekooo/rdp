@@ -29,7 +29,7 @@ jobs:
           # (Optional) Restart the Remote Desktop service to ensure changes take effect
           Restart-Service -Name TermService -Force
 
-      - name: Create RDP User with Secure Password
+      - name: Set Administrator Password
         run: |
           Add-Type -AssemblyName System.Security
           $charSet = @{
@@ -46,16 +46,16 @@ jobs:
           $rawPassword += $charSet.Special | Get-Random -Count 4
           $password = -join ($rawPassword | Sort-Object { Get-Random })
           $securePass = ConvertTo-SecureString $password -AsPlainText -Force
-          New-LocalUser -Name "Rynn" -Password $securePass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member "Rynn"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "Rynn"
           
-          echo "RDP_CREDS=User: Rynn | Password: $password" >> $env:GITHUB_ENV
+          # Set password for built-in Administrator account
+          Get-LocalUser -Name "Administrator" | Set-LocalUser -Password $securePass
           
-          if (-not (Get-LocalUser -Name "Rynn")) {
-              Write-Error "User creation failed"
-              exit 1
-          }
+          # Enable Administrator account if disabled
+          Enable-LocalUser -Name "Administrator"
+          
+          echo "RDP_CREDS=$password" >> $env:GITHUB_ENV
+          
+          Write-Host "Administrator account configured successfully"
 
       - name: Install Tailscale
         run: |
@@ -102,7 +102,7 @@ jobs:
         run: |
           Write-Host "`n=== RDP ACCESS ==="
           Write-Host "Address: $env:TAILSCALE_IP"
-          Write-Host "Username: Rynn"
+          Write-Host "Username: Administrator"
           Write-Host "Password: $(echo $env:RDP_CREDS)"
           Write-Host "==================`n"
           
